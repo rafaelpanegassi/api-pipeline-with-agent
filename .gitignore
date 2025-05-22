@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+last_processed_ids.json
+telegram_messages_session.session
 # C extensions
 *.so
 
