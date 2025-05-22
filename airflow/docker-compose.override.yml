@@ -1,0 +1,40 @@
+services:
+  api-server:
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ../jobs:/opt/airflow/jobs
+    environment:
+      - AIRFLOW__CORE__DAG_DIR_LIST_INTERVAL=10  # Intervalo para verificação dos DAGs
+
+  scheduler:
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ../jobs:/opt/airflow/jobs
+    environment:
+      - AIRFLOW__CORE__DAG_DIR_LIST_INTERVAL=10  # Intervalo para verificação dos DAGs
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: telegram_data
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgresql_bin:/usr/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - airflow
+
+networks:
+  airflow:
+    driver: bridge
+
+volumes:
+  postgresql_data:
+    driver: local
+  postgresql_bin:
+    driver: local
