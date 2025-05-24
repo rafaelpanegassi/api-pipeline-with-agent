@@ -42,8 +42,7 @@ CHAT_IDS: List[int] = [
     -1001581854710,
     -1001493914605,
 ]
-MESSAGES_FETCH_LIMIT = 50
-
+MESSAGES_FETCH_LIMIT = int(os.getenv("MESSAGES_FETCH_LIMIT", 50))
 LAST_IDS_FILE = "last_processed_ids.json"
 
 DB_USER = os.getenv("DB_USER")
@@ -52,21 +51,22 @@ DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME")
 
+# --- Configurações da OpenAI ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Recomendações: "gpt-3.5-turbo", "gpt-4o-mini", ou "gpt-4o" para maior qualidade
+OPENAI_MODEL_NAME = os.getenv("OPENAI_MODEL_NAME", "gpt-3.5-turbo")
+OPENAI_REQUEST_TIMEOUT = int(os.getenv("OPENAI_REQUEST_TIMEOUT", 60)) # Timeout em segundos
+
 
 def setup_logging():
     logger.info("Logging configured (default console output).")
 
-
 if not API_ID:
-    logger.error(
-        "Critical: Telegram API_ID is not properly configured. Script might fail."
-    )
+    logger.error("Critical: Telegram API_ID is not properly configured. Script might fail.")
 if not API_HASH:
     logger.error("Critical: Telegram API_HASH is not configured. Script might fail.")
 if not PHONE_NUMBER:
-    logger.error(
-        "Critical: Telegram PHONE_NUMBER is not configured. Script might fail."
-    )
+    logger.error("Critical: Telegram PHONE_NUMBER is not configured. Script might fail.")
 
 db_configs_present = all([DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_PORT])
 if not db_configs_present:
@@ -74,3 +74,8 @@ if not db_configs_present:
         "One or more PostgreSQL environment variables (DB_USER, DB_PASSWORD, "
         "DB_HOST, DB_NAME, DB_PORT) are not set. RDSPostgreSQLManager might fail."
     )
+
+if not OPENAI_API_KEY:
+    logger.critical("OPENAI_API_KEY is not defined in .env or config. Script will fail to process messages with OpenAI.")
+
+logger.info(f"OpenAI configured to use model: {OPENAI_MODEL_NAME} with timeout {OPENAI_REQUEST_TIMEOUT}s")
