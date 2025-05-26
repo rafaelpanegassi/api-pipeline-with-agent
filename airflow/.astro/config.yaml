@@ -1,6 +1,0 @@
-postgres:
-    port: "5435"
-project:
-    name: airflow
-webserver:
-    port: "8081"
