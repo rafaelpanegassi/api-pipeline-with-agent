@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from core import config
-from tools.rds_postgres_manager import RDSPostgreSQLManager # Presumo que este é seu gerenciador de DB
+from tools.rds_postgres_manager import RDSPostgreSQLManager
 
 
 class DatabaseHandler:
@@ -33,7 +33,7 @@ class DatabaseHandler:
             logger.error(
                 f"Error during synchronous DB operation ({func.__name__}): {e}"
             )
-            return None # Ou raise, dependendo de como você quer lidar com erros de DB
+            return None
 
     async def ensure_tables_exist(self):
         """Ensures all necessary tables exist in the database."""
@@ -47,7 +47,6 @@ class DatabaseHandler:
 
 
     async def ensure_messages_table_exists(self):
-        # Coluna para a resposta JSON bruta do LLM/Ollama
         create_table_query = """
         CREATE TABLE IF NOT EXISTS telegram_messages (
             internal_id SERIAL PRIMARY KEY,
@@ -70,13 +69,12 @@ class DatabaseHandler:
             self.pg_manager.execute_query, create_table_query
         )
 
-        if result is not None: # execute_query retorna [] para DDL bem-sucedido sem SELECT
+        if result is not None:
             logger.success(
                 "'telegram_messages' table verified/created successfully (or already existed)."
             )
             return True
         else:
-            # Se execute_query retorna None em caso de erro na pg_manager
             logger.error("Failed to verify/create the 'telegram_messages' table.")
             return False
 
@@ -139,14 +137,14 @@ class DatabaseHandler:
         inserts it into the promotions_data table.
         Returns True if the main message was inserted/updated, False otherwise.
         """
-        extracted_info_dict = data.get("extracted_info") # Chave usada em message_processor
+        extracted_info_dict = data.get("extracted_info")
         extracted_info_raw_str = None
         if extracted_info_dict is not None:
             try:
                 extracted_info_raw_str = json.dumps(extracted_info_dict)
             except TypeError as e:
                 logger.warning(f"Could not serialize extracted_info to JSON: {e}. Storing as string.")
-                extracted_info_raw_str = str(extracted_info_dict) # Fallback
+                extracted_info_raw_str = str(extracted_info_dict)
 
         insert_message_query = """
         INSERT INTO telegram_messages (
@@ -180,19 +178,18 @@ class DatabaseHandler:
                 f"Failed to insert/update message ID {data.get('message_id')} (chat {data.get('chat_id')}) "
                 f"or obtain its internal_id. Promotion data will not be saved. Result: {result_tuples}"
             )
-            return False # Indica que a mensagem principal não foi salva
+            return False
 
         if message_internal_id is not None and extracted_info_dict and isinstance(extracted_info_dict, dict):
             extraction_type = extracted_info_dict.get("type")
             
-            def get_num_or_null(val, precision=None): # Helper para converter para numérico ou null
+            def get_num_or_null(val, precision=None):
                 if val is None or val == '': return None
                 try:
                     num = float(val)
                     return round(num, precision) if precision is not None else num
                 except (ValueError, TypeError): return None
 
-            # Só insere/atualiza em promotions_data se for um tipo relevante
             if extraction_type not in ["error", "no_text_content", "irrelevant", "skipped_pre_filter", None]:
                 insert_promo_query = """
                 INSERT INTO promotions_data (
@@ -246,7 +243,7 @@ class DatabaseHandler:
                     get_num_or_null(extracted_info_dict.get("maximum_discount_amount"), 2),
                     extracted_info_dict.get("applicable_to"),
                     extracted_info_dict.get("expiration_date"),
-                    extracted_info_dict.get("reason") # Pode ser null se não for erro/irrelevante
+                    extracted_info_dict.get("reason")
                 )
                 
                 promo_inserted = await self._run_sync_db_operation(
@@ -256,7 +253,7 @@ class DatabaseHandler:
                     logger.debug(f"Promotion data for message_internal_id {message_internal_id} inserted/updated.")
                 else:
                     logger.warning(f"Failed to insert/update promotion data for message_internal_id {message_internal_id}.")
-            elif extraction_type: # Se é irrelevante, erro, etc., mas queremos registrar o tipo e a razão
+            elif extraction_type:
                  insert_placeholder_promo_query = """
                  INSERT INTO promotions_data (message_internal_id, extraction_type, reason, updated_at)
                  VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
@@ -271,7 +268,7 @@ class DatabaseHandler:
                  )
                  logger.debug(f"Placeholder/Status for promotions_data (type: {extraction_type}) inserted/updated for message_internal_id {message_internal_id}.")
 
-        return True # Sucesso se a mensagem principal foi processada
+        return True
 
     async def insert_messages_batch(self, messages_data: List[Dict[str, Any]]) -> int:
         if not messages_data:
@@ -281,7 +278,6 @@ class DatabaseHandler:
         logger.info(f"Starting insertion/processing of {len(messages_data)} messages in batch (iterative).")
 
         for data_item in messages_data:
-            # Esta função agora lida com a inserção da mensagem e dos dados da promoção
             if await self.insert_message_data_and_promotion(data_item):
                 processed_successfully_count += 1
         

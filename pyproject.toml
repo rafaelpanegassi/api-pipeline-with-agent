@@ -13,6 +13,7 @@ loguru = "^0.7.3"
 sqlalchemy = "^2.0.41"
 psycopg2-binary = "^2.9.10"
 openai = "^1.82.0"
+schedule = "^1.2.2"
 
 
 [build-system]

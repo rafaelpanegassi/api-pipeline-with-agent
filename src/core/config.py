@@ -53,9 +53,8 @@ DB_NAME = os.getenv("DB_NAME")
 
 # --- Configurações da OpenAI ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-# Recomendações: "gpt-3.5-turbo", "gpt-4o-mini", ou "gpt-4o" para maior qualidade
-OPENAI_MODEL_NAME = os.getenv("OPENAI_MODEL_NAME", "gpt-3.5-turbo")
-OPENAI_REQUEST_TIMEOUT = int(os.getenv("OPENAI_REQUEST_TIMEOUT", 60)) # Timeout em segundos
+OPENAI_MODEL_NAME = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
+OPENAI_REQUEST_TIMEOUT = int(os.getenv("OPENAI_REQUEST_TIMEOUT", 60))
 
 
 def setup_logging():

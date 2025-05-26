@@ -1,13 +1,13 @@
 import re
 import json
-import asyncio # Mantido para consistência, mas a chamada OpenAI será async
+import asyncio
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from openai import AsyncOpenAI, OpenAIError # Importa a biblioteca da OpenAI
+from openai import AsyncOpenAI, OpenAIError
 from loguru import logger
 from telethon.tl.types import Channel, Chat, Message, User
 
-from core import config # Para acessar as configurações da OpenAI
+from core import config
 
 LLM_PROMOTION_EXTRACTION_PROMPT_TEMPLATE = """
 Analise a seguinte mensagem do Telegram e extraia informações sobre promoções, produtos ou cupons.
@@ -67,7 +67,6 @@ RELEVANT_KEYWORDS_FOR_PRE_FILTER = [
     "economize", "leve", "pague", "cashback", "metade do preço"
 ]
 
-# Inicializa o cliente AsyncOpenAI globalmente
 if config.OPENAI_API_KEY:
     openai_async_client = AsyncOpenAI(
         api_key=config.OPENAI_API_KEY,
@@ -106,8 +105,8 @@ async def extract_promotion_info_with_openai(message_text: str) -> Optional[Dict
                 {"role": "system", "content": "You are a helpful assistant designed to output structured JSON according to the user's instructions. Output ONLY the JSON object."},
                 {"role": "user", "content": user_prompt}
             ],
-            response_format={"type": "json_object"}, # Solicita JSON Mode
-            temperature=0.1, # Para saídas mais determinísticas e factuais
+            response_format={"type": "json_object"},
+            temperature=0.1,
         )
         
         if response.choices and response.choices[0].message and response.choices[0].message.content:
@@ -122,7 +121,7 @@ async def extract_promotion_info_with_openai(message_text: str) -> Optional[Dict
     except json.JSONDecodeError as e:
         logger.error(f"JSONDecodeError from OpenAI response: {e}. Response: '{str(raw_response_content)}'")
         return {"type": "error", "reason": f"OpenAI response not valid JSON: {e}", "raw_response": str(raw_response_content)}
-    except OpenAIError as e: # Captura erros específicos da API da OpenAI
+    except OpenAIError as e:
         logger.error(f"OpenAI API Error: {type(e).__name__} - {e}")
         return {"type": "error", "reason": f"OpenAI API Error: {str(e)}"}
     except Exception as e:
@@ -184,7 +183,7 @@ async def process_message_data(
         "message_date": message.date,
         "media_type": media_type_str,
         "extracted_urls_regex": urls_found_regex,
-        "extracted_info": None, # Chave genérica para os dados extraídos
+        "extracted_info": None,
     }
 
     if message_text_content and is_potentially_promotional(message_text_content):
