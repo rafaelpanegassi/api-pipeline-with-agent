@@ -1,24 +1,49 @@
 services:
-  db:
-    container_name: db
-    image: postgres:latest
+  app:
+    build:
+      context: ..
+      dockerfile: docker/telegram_extract.Dockerfile
+    container_name: telegram_promo_app
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: telegram_data
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - PYTHONUNBUFFERED=1
+      - API_ID=${API_ID}
+      - API_HASH=${API_HASH}
+      - PHONE_NUMBER=${PHONE_NUMBER}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=postgres_db
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL_NAME=${OPENAI_MODEL_NAME}
+      - OPENAI_REQUEST_TIMEOUT=${OPENAI_REQUEST_TIMEOUT}
     volumes:
-      - postgresql_bin:/usr/lib/postgresql
-      - postgresql_data:/var/lib/postgresql/data
-    ports:
-      - 5432:5432
+      - ../telegram_messages_session.session:/app/telegram_messages_session.session
+    depends_on:
+      - postgres_db
     networks:
-      - db
+      - app_network
 
-volumes:
-  postgresql_data:
-    driver: local
-  postgresql_bin:
-    driver: local
+  postgres_db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_app_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT_HOST:-5432}:5432"
+    networks:
+      - app_network
 
 networks:
-  db:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_app_data:
+    driver: local
