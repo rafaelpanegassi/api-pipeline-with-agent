@@ -1,10 +1,10 @@
-import re
-import json
 import asyncio
+import json
+import re
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from openai import AsyncOpenAI, OpenAIError
 from loguru import logger
+from openai import AsyncOpenAI, OpenAIError
 from telethon.tl.types import Channel, Chat, Message, User
 
 from core import config
@@ -62,15 +62,32 @@ Objeto JSON extraído:
 """
 
 RELEVANT_KEYWORDS_FOR_PRE_FILTER = [
-    "r$", "promo", "desconto", "cupom", "oferta", "%", " off", "barato", "preço",
-    "imperdível", "saldão", "liquida", "frete grátis", "grátis", "compre", "ganhe",
-    "economize", "leve", "pague", "cashback", "metade do preço"
+    "r$",
+    "promo",
+    "desconto",
+    "cupom",
+    "oferta",
+    "%",
+    " off",
+    "barato",
+    "preço",
+    "imperdível",
+    "saldão",
+    "liquida",
+    "frete grátis",
+    "grátis",
+    "compre",
+    "ganhe",
+    "economize",
+    "leve",
+    "pague",
+    "cashback",
+    "metade do preço",
 ]
 
 if config.OPENAI_API_KEY:
     openai_async_client = AsyncOpenAI(
-        api_key=config.OPENAI_API_KEY,
-        timeout=config.OPENAI_REQUEST_TIMEOUT
+        api_key=config.OPENAI_API_KEY, timeout=config.OPENAI_REQUEST_TIMEOUT
     )
 else:
     openai_async_client = None
@@ -83,44 +100,68 @@ def is_potentially_promotional(text: Optional[str]) -> bool:
     text_lower = text.lower()
     if any(keyword in text_lower for keyword in RELEVANT_KEYWORDS_FOR_PRE_FILTER):
         return True
-    if re.search(r'\d+([,\.]\d{2})?\s*%', text_lower) or \
-       re.search(r'R\$\s*\d+([,\.]\d{2})?', text_lower) or \
-       re.search(r'de\s+R\$\s*[\d,.]+\s+por\s+R\$\s*[\d,.]+', text_lower):
+    if (
+        re.search(r"\d+([,\.]\d{2})?\s*%", text_lower)
+        or re.search(r"R\$\s*\d+([,\.]\d{2})?", text_lower)
+        or re.search(r"de\s+R\$\s*[\d,.]+\s+por\s+R\$\s*[\d,.]+", text_lower)
+    ):
         return True
     return False
 
-async def extract_promotion_info_with_openai(message_text: str) -> Optional[Dict[str, Any]]:
+
+async def extract_promotion_info_with_openai(
+    message_text: str,
+) -> Optional[Dict[str, Any]]:
     if not openai_async_client:
         logger.error("OpenAI client not initialized. Cannot extract information.")
         return {"type": "error", "reason": "OpenAI client not initialized."}
 
-    user_prompt = LLM_PROMOTION_EXTRACTION_PROMPT_TEMPLATE.format(message_text=message_text)
-    logger.debug(f"Sending to OpenAI (model: {config.OPENAI_MODEL_NAME}, first 100 chars of user prompt): {message_text[:100]}...")
-    
+    user_prompt = LLM_PROMOTION_EXTRACTION_PROMPT_TEMPLATE.format(
+        message_text=message_text
+    )
+    logger.debug(
+        f"Sending to OpenAI (model: {config.OPENAI_MODEL_NAME}, first 100 chars of user prompt): {message_text[:100]}..."
+    )
+
     raw_response_content = None
     try:
         response = await openai_async_client.chat.completions.create(
             model=config.OPENAI_MODEL_NAME,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant designed to output structured JSON according to the user's instructions. Output ONLY the JSON object."},
-                {"role": "user", "content": user_prompt}
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant designed to output structured JSON according to the user's instructions. Output ONLY the JSON object.",
+                },
+                {"role": "user", "content": user_prompt},
             ],
             response_format={"type": "json_object"},
             temperature=0.1,
         )
-        
-        if response.choices and response.choices[0].message and response.choices[0].message.content:
+
+        if (
+            response.choices
+            and response.choices[0].message
+            and response.choices[0].message.content
+        ):
             raw_response_content = response.choices[0].message.content
             logger.trace(f"Raw response string from OpenAI: {raw_response_content}")
             extracted_data = json.loads(raw_response_content)
             return extracted_data
         else:
-            logger.error("OpenAI response structure is not as expected or content is missing.")
+            logger.error(
+                "OpenAI response structure is not as expected or content is missing."
+            )
             return {"type": "error", "reason": "Unexpected OpenAI response structure."}
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSONDecodeError from OpenAI response: {e}. Response: '{str(raw_response_content)}'")
-        return {"type": "error", "reason": f"OpenAI response not valid JSON: {e}", "raw_response": str(raw_response_content)}
+        logger.error(
+            f"JSONDecodeError from OpenAI response: {e}. Response: '{str(raw_response_content)}'"
+        )
+        return {
+            "type": "error",
+            "reason": f"OpenAI response not valid JSON: {e}",
+            "raw_response": str(raw_response_content),
+        }
     except OpenAIError as e:
         logger.error(f"OpenAI API Error: {type(e).__name__} - {e}")
         return {"type": "error", "reason": f"OpenAI API Error: {str(e)}"}
@@ -139,7 +180,7 @@ def extract_urls_from_text(text: Optional[str]) -> Optional[List[str]]:
     urls = url_pattern.findall(text)
     cleaned_urls = []
     for url in urls:
-        while url.endswith(('.', ',', '!', '?', ')', ']')):
+        while url.endswith((".", ",", "!", "?", ")", "]")):
             url = url[:-1]
         cleaned_urls.append(url)
     return cleaned_urls if cleaned_urls else None
@@ -148,16 +189,18 @@ def extract_urls_from_text(text: Optional[str]) -> Optional[List[str]]:
 async def process_message_data(
     message: Message,
     chat_name: str,
-    get_sender_display_name_func: Callable[
-        [Optional[Union[User, Chat, Channel]]], str
-    ],
+    get_sender_display_name_func: Callable[[Optional[Union[User, Chat, Channel]]], str],
 ) -> Optional[Dict[str, Any]]:
     if not message or not hasattr(message, "id"):
         logger.warning("process_message_data: Invalid message or message without ID.")
         return None
 
     sender_name = get_sender_display_name_func(message.sender)
-    media_type_str = type(message.media).__name__.replace("MessageMedia", "") if message.media else None
+    media_type_str = (
+        type(message.media).__name__.replace("MessageMedia", "")
+        if message.media
+        else None
+    )
     message_text_content = message.text if hasattr(message, "text") else None
     urls_found_regex = extract_urls_from_text(message_text_content)
 
@@ -187,24 +230,43 @@ async def process_message_data(
     }
 
     if message_text_content and is_potentially_promotional(message_text_content):
-        logger.info(f"Message {message.id} (chat: {chat_name}) seems promotional. Sending to OpenAI...")
+        logger.info(
+            f"Message {message.id} (chat: {chat_name}) seems promotional. Sending to OpenAI..."
+        )
         openai_data = await extract_promotion_info_with_openai(message_text_content)
         base_processed_data["extracted_info"] = openai_data
-        
-        if openai_data and isinstance(openai_data, dict) and "link" in openai_data and openai_data["link"]:
+
+        if (
+            openai_data
+            and isinstance(openai_data, dict)
+            and "link" in openai_data
+            and openai_data["link"]
+        ):
             if not base_processed_data["extracted_urls_regex"]:
                 base_processed_data["extracted_urls_regex"] = []
             if openai_data["link"] not in base_processed_data["extracted_urls_regex"]:
                 base_processed_data["extracted_urls_regex"].append(openai_data["link"])
-        
-        extracted_type = openai_data.get('type', 'unknown_type') if openai_data else 'no_openai_data'
+
+        extracted_type = (
+            openai_data.get("type", "unknown_type") if openai_data else "no_openai_data"
+        )
         logger.info(f"OpenAI for msg ID {message.id} returned type: {extracted_type}")
 
     elif message_text_content:
-        logger.debug(f"Message {message.id} (chat: {chat_name}) did not pass promotional keyword filter. OpenAI will not be called.")
-        base_processed_data["extracted_info"] = {"type": "skipped_pre_filter", "reason": "Not promotional by initial screening."}
+        logger.debug(
+            f"Message {message.id} (chat: {chat_name}) did not pass promotional keyword filter. OpenAI will not be called."
+        )
+        base_processed_data["extracted_info"] = {
+            "type": "skipped_pre_filter",
+            "reason": "Not promotional by initial screening.",
+        }
     else:
-        logger.debug(f"Message {message.id} (chat: {chat_name}) has no text content. OpenAI will not be called.")
-        base_processed_data["extracted_info"] = {"type": "no_text_content", "reason": "Message without text."}
+        logger.debug(
+            f"Message {message.id} (chat: {chat_name}) has no text content. OpenAI will not be called."
+        )
+        base_processed_data["extracted_info"] = {
+            "type": "no_text_content",
+            "reason": "Message without text.",
+        }
 
     return base_processed_data

@@ -126,9 +126,7 @@ class RDSPostgreSQLManager:
                 if connection:
                     connection.close()
         else:
-            logger.warning(
-                "Could not establish database connection to execute insert."
-            )
+            logger.warning("Could not establish database connection to execute insert.")
             return False
 
     @staticmethod

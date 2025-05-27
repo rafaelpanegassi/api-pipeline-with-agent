@@ -1,7 +1,7 @@
 import asyncio
 import time
-import schedule
 
+import schedule
 from loguru import logger
 
 from core import config
@@ -9,6 +9,7 @@ from handlers.database_handler import DatabaseHandler
 from handlers.telegram_handler import TelegramHandler
 from processing.message_processor import process_message_data
 from utils.state_manager import load_last_message_ids, save_last_message_ids
+
 
 async def run_telegram_pipeline():
     logger.info("Starting Telegram message processing pipeline run...")
@@ -19,9 +20,7 @@ async def run_telegram_pipeline():
         )
         return
     if not config.OPENAI_API_KEY:
-        logger.critical(
-            "OPENAI_API_KEY is not configured. Pipeline cannot run."
-        )
+        logger.critical("OPENAI_API_KEY is not configured. Pipeline cannot run.")
         return
 
     try:
@@ -42,7 +41,9 @@ async def run_telegram_pipeline():
 
     try:
         if not await tg_handler.connect_and_authorize():
-            logger.critical("Failed to connect/authorize with Telegram. Pipeline run aborted.")
+            logger.critical(
+                "Failed to connect/authorize with Telegram. Pipeline run aborted."
+            )
             return
 
         overall_new_messages_processed_count = 0
@@ -76,24 +77,35 @@ async def run_telegram_pipeline():
 
                 if message_object.id > current_max_id_found_for_this_chat:
                     current_max_id_found_for_this_chat = message_object.id
-                
-                batch_trigger_size = max(10, config.MESSAGES_FETCH_LIMIT // 5 if config.MESSAGES_FETCH_LIMIT > 0 else 10)
+
+                batch_trigger_size = max(
+                    10,
+                    (
+                        config.MESSAGES_FETCH_LIMIT // 5
+                        if config.MESSAGES_FETCH_LIMIT > 0
+                        else 10
+                    ),
+                )
                 if len(messages_data_for_db_batch) >= batch_trigger_size:
                     logger.debug(
                         f"Sending batch of {len(messages_data_for_db_batch)} messages "
                         f"from chat '{chat_name}' to DB..."
                     )
-                    count_in_batch = await db_handler.insert_messages_batch(messages_data_for_db_batch)
+                    count_in_batch = await db_handler.insert_messages_batch(
+                        messages_data_for_db_batch
+                    )
                     if count_in_batch is not None:
-                         overall_new_messages_processed_count += count_in_batch
+                        overall_new_messages_processed_count += count_in_batch
                     messages_data_for_db_batch.clear()
-            
+
             if messages_data_for_db_batch:
                 logger.debug(
                     f"Sending final batch of {len(messages_data_for_db_batch)} messages "
                     f"from chat '{chat_name}' to DB..."
                 )
-                count_in_batch = await db_handler.insert_messages_batch(messages_data_for_db_batch)
+                count_in_batch = await db_handler.insert_messages_batch(
+                    messages_data_for_db_batch
+                )
                 if count_in_batch is not None:
                     overall_new_messages_processed_count += count_in_batch
                 messages_data_for_db_batch.clear()
@@ -104,12 +116,16 @@ async def run_telegram_pipeline():
                     f"Latest ID found: {current_max_id_found_for_this_chat}"
                 )
             else:
-                logger.info(f"No new messages found for '{chat_name}' after ID {min_id_for_this_chat}.")
+                logger.info(
+                    f"No new messages found for '{chat_name}' after ID {min_id_for_this_chat}."
+                )
 
             if current_max_id_found_for_this_chat > min_id_for_this_chat:
-                last_processed_ids[str(chat_id_to_monitor)] = current_max_id_found_for_this_chat
+                last_processed_ids[str(chat_id_to_monitor)] = (
+                    current_max_id_found_for_this_chat
+                )
                 updated_any_id_in_state_file = True
-        
+
         if updated_any_id_in_state_file:
             save_last_message_ids(last_processed_ids)
             logger.info("State file (last_processed_ids.json) updated.")
@@ -122,7 +138,9 @@ async def run_telegram_pipeline():
         )
 
     except ValueError as ve:
-        logger.critical(f"Critical configuration or value error during pipeline run: {ve}.")
+        logger.critical(
+            f"Critical configuration or value error during pipeline run: {ve}."
+        )
     except Exception as e:
         logger.exception(f"Critical unhandled error in main pipeline run: {e}")
     finally:
@@ -143,14 +161,19 @@ def scheduled_job_wrapper():
 
 
 if __name__ == "__main__":
-    if hasattr(config, 'setup_logging') and callable(config.setup_logging):
+    if hasattr(config, "setup_logging") and callable(config.setup_logging):
         config.setup_logging()
     else:
         pass
 
     logger.info("Application scheduler started.")
+
+    logger.info("Running an initial job execution at startup for testing...")
+    scheduled_job_wrapper()
+    logger.info("Initial job execution finished.")
+
     logger.info(f"Telegram pipeline job scheduled to run every 12 hours.")
-    
+
     schedule.every(12).hours.do(scheduled_job_wrapper)
 
     while True:

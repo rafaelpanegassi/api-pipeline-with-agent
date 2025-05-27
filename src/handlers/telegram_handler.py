@@ -29,9 +29,7 @@ class TelegramHandler:
             logger.critical(msg)
             raise ValueError(msg)
 
-        self.client = TelegramClient(
-            self.session_name, self.api_id, self.api_hash
-        )
+        self.client = TelegramClient(self.session_name, self.api_id, self.api_hash)
         self._is_connected_and_authorized = False
 
     async def connect_and_authorize(self):
@@ -92,9 +90,7 @@ class TelegramHandler:
                 return f"ID: {entity_id} (Connection failed)"
 
         try:
-            entity: Union[User, Chat, Channel] = await self.client.get_entity(
-                entity_id
-            )
+            entity: Union[User, Chat, Channel] = await self.client.get_entity(entity_id)
             if hasattr(entity, "title") and entity.title:
                 return entity.title
             if hasattr(entity, "username") and entity.username:
@@ -106,14 +102,10 @@ class TelegramHandler:
                 return name
             return f"ID: {entity_id} (Unknown Type)"
         except ValueError:
-            logger.error(
-                f"Invalid or not found entity ID in Telegram: {entity_id}"
-            )
+            logger.error(f"Invalid or not found entity ID in Telegram: {entity_id}")
             return f"ID: {entity_id} (Invalid/Not Found)"
         except Exception as e:
-            logger.error(
-                f"Error getting entity name {entity_id} from Telegram: {e}"
-            )
+            logger.error(f"Error getting entity name {entity_id} from Telegram: {e}")
             return f"ID: {entity_id} (Error fetching name)"
 
     def get_sender_display_name(

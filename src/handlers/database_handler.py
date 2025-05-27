@@ -39,12 +39,13 @@ class DatabaseHandler:
         """Ensures all necessary tables exist in the database."""
         success_messages_table = await self.ensure_messages_table_exists()
         if not success_messages_table:
-            logger.error("Table 'telegram_messages' could not be ensured. Aborting creation of other tables.")
+            logger.error(
+                "Table 'telegram_messages' could not be ensured. Aborting creation of other tables."
+            )
             return False
-        
+
         success_promotions_table = await self.ensure_promotions_data_table_exists()
         return success_messages_table and success_promotions_table
-
 
     async def ensure_messages_table_exists(self):
         create_table_query = """
@@ -143,7 +144,9 @@ class DatabaseHandler:
             try:
                 extracted_info_raw_str = json.dumps(extracted_info_dict)
             except TypeError as e:
-                logger.warning(f"Could not serialize extracted_info to JSON: {e}. Storing as string.")
+                logger.warning(
+                    f"Could not serialize extracted_info to JSON: {e}. Storing as string."
+                )
                 extracted_info_raw_str = str(extracted_info_dict)
 
         insert_message_query = """
@@ -159,10 +162,16 @@ class DatabaseHandler:
         RETURNING internal_id;
         """
         message_values = (
-            data.get("message_id"), data.get("chat_id"), data.get("chat_name"),
-            data.get("sender_id"), data.get("sender_name"), data.get("message_text"),
-            data.get("message_date"), data.get("media_type"),
-            data.get("extracted_urls_regex"), extracted_info_raw_str
+            data.get("message_id"),
+            data.get("chat_id"),
+            data.get("chat_name"),
+            data.get("sender_id"),
+            data.get("sender_name"),
+            data.get("message_text"),
+            data.get("message_date"),
+            data.get("media_type"),
+            data.get("extracted_urls_regex"),
+            extracted_info_raw_str,
         )
 
         result_tuples = await self._run_sync_db_operation(
@@ -172,7 +181,9 @@ class DatabaseHandler:
         message_internal_id: Optional[int] = None
         if result_tuples and len(result_tuples) > 0 and len(result_tuples[0]) > 0:
             message_internal_id = result_tuples[0][0]
-            logger.debug(f"Message ID {data.get('message_id')} (chat {data.get('chat_id')}) inserted/updated with internal_id: {message_internal_id}.")
+            logger.debug(
+                f"Message ID {data.get('message_id')} (chat {data.get('chat_id')}) inserted/updated with internal_id: {message_internal_id}."
+            )
         else:
             logger.warning(
                 f"Failed to insert/update message ID {data.get('message_id')} (chat {data.get('chat_id')}) "
@@ -180,17 +191,29 @@ class DatabaseHandler:
             )
             return False
 
-        if message_internal_id is not None and extracted_info_dict and isinstance(extracted_info_dict, dict):
+        if (
+            message_internal_id is not None
+            and extracted_info_dict
+            and isinstance(extracted_info_dict, dict)
+        ):
             extraction_type = extracted_info_dict.get("type")
-            
+
             def get_num_or_null(val, precision=None):
-                if val is None or val == '': return None
+                if val is None or val == "":
+                    return None
                 try:
                     num = float(val)
                     return round(num, precision) if precision is not None else num
-                except (ValueError, TypeError): return None
+                except (ValueError, TypeError):
+                    return None
 
-            if extraction_type not in ["error", "no_text_content", "irrelevant", "skipped_pre_filter", None]:
+            if extraction_type not in [
+                "error",
+                "no_text_content",
+                "irrelevant",
+                "skipped_pre_filter",
+                None,
+            ]:
                 insert_promo_query = """
                 INSERT INTO promotions_data (
                     message_internal_id, extraction_type, product_name, original_price, discounted_price,
@@ -222,7 +245,7 @@ class DatabaseHandler:
                     reason = EXCLUDED.reason,
                     updated_at = CURRENT_TIMESTAMP;
                 """
-                
+
                 promo_values = (
                     message_internal_id,
                     extraction_type,
@@ -230,31 +253,51 @@ class DatabaseHandler:
                     get_num_or_null(extracted_info_dict.get("original_price"), 2),
                     get_num_or_null(extracted_info_dict.get("discounted_price"), 2),
                     extracted_info_dict.get("store_name"),
-                    get_num_or_null(extracted_info_dict.get("direct_discount_amount"), 2),
-                    get_num_or_null(extracted_info_dict.get("direct_discount_percentage"), 2),
+                    get_num_or_null(
+                        extracted_info_dict.get("direct_discount_amount"), 2
+                    ),
+                    get_num_or_null(
+                        extracted_info_dict.get("direct_discount_percentage"), 2
+                    ),
                     extracted_info_dict.get("link"),
                     extracted_info_dict.get("coupon_name"),
                     extracted_info_dict.get("discount_description"),
-                    get_num_or_null(extracted_info_dict.get("coupon_discount_value_amount"), 2),
-                    get_num_or_null(extracted_info_dict.get("coupon_discount_value_percentage"), 2),
-                    get_num_or_null(extracted_info_dict.get("minimum_purchase_value_for_coupon"), 2),
-                    get_num_or_null(extracted_info_dict.get("minimum_purchase_value"), 2),
-                    get_num_or_null(extracted_info_dict.get("maximum_purchase_value"), 2),
-                    get_num_or_null(extracted_info_dict.get("maximum_discount_amount"), 2),
+                    get_num_or_null(
+                        extracted_info_dict.get("coupon_discount_value_amount"), 2
+                    ),
+                    get_num_or_null(
+                        extracted_info_dict.get("coupon_discount_value_percentage"), 2
+                    ),
+                    get_num_or_null(
+                        extracted_info_dict.get("minimum_purchase_value_for_coupon"), 2
+                    ),
+                    get_num_or_null(
+                        extracted_info_dict.get("minimum_purchase_value"), 2
+                    ),
+                    get_num_or_null(
+                        extracted_info_dict.get("maximum_purchase_value"), 2
+                    ),
+                    get_num_or_null(
+                        extracted_info_dict.get("maximum_discount_amount"), 2
+                    ),
                     extracted_info_dict.get("applicable_to"),
                     extracted_info_dict.get("expiration_date"),
-                    extracted_info_dict.get("reason")
+                    extracted_info_dict.get("reason"),
                 )
-                
+
                 promo_inserted = await self._run_sync_db_operation(
                     self.pg_manager.execute_insert, insert_promo_query, promo_values
                 )
                 if promo_inserted:
-                    logger.debug(f"Promotion data for message_internal_id {message_internal_id} inserted/updated.")
+                    logger.debug(
+                        f"Promotion data for message_internal_id {message_internal_id} inserted/updated."
+                    )
                 else:
-                    logger.warning(f"Failed to insert/update promotion data for message_internal_id {message_internal_id}.")
+                    logger.warning(
+                        f"Failed to insert/update promotion data for message_internal_id {message_internal_id}."
+                    )
             elif extraction_type:
-                 insert_placeholder_promo_query = """
+                insert_placeholder_promo_query = """
                  INSERT INTO promotions_data (message_internal_id, extraction_type, reason, updated_at)
                  VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                  ON CONFLICT (message_internal_id) DO UPDATE SET
@@ -262,11 +305,19 @@ class DatabaseHandler:
                     reason = EXCLUDED.reason,
                     updated_at = CURRENT_TIMESTAMP;
                  """
-                 placeholder_values = (message_internal_id, extraction_type, extracted_info_dict.get("reason"))
-                 await self._run_sync_db_operation(
-                    self.pg_manager.execute_insert, insert_placeholder_promo_query, placeholder_values
-                 )
-                 logger.debug(f"Placeholder/Status for promotions_data (type: {extraction_type}) inserted/updated for message_internal_id {message_internal_id}.")
+                placeholder_values = (
+                    message_internal_id,
+                    extraction_type,
+                    extracted_info_dict.get("reason"),
+                )
+                await self._run_sync_db_operation(
+                    self.pg_manager.execute_insert,
+                    insert_placeholder_promo_query,
+                    placeholder_values,
+                )
+                logger.debug(
+                    f"Placeholder/Status for promotions_data (type: {extraction_type}) inserted/updated for message_internal_id {message_internal_id}."
+                )
 
         return True
 
@@ -275,15 +326,16 @@ class DatabaseHandler:
             return 0
 
         processed_successfully_count = 0
-        logger.info(f"Starting insertion/processing of {len(messages_data)} messages in batch (iterative).")
+        logger.info(
+            f"Starting insertion/processing of {len(messages_data)} messages in batch (iterative)."
+        )
 
         for data_item in messages_data:
             if await self.insert_message_data_and_promotion(data_item):
                 processed_successfully_count += 1
-        
+
         logger.info(
             f"{processed_successfully_count}/{len(messages_data)} messages were processed "
             "(attempted insertion/update in DB, including promotion data)."
         )
         return processed_successfully_count
-
