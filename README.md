@@ -83,8 +83,8 @@ API-PIPELINE-WITH-AGENT/
 
 1.  **Clone the Repository:**
     ```bash
-    git clone <YOUR_GIT_REPOSITORY_URL>
-    cd <YOUR_REPOSITORY_NAME>
+    git clone https://github.com/rafaelpanegassi/api-pipeline-with-llm.git
+    cd api-pipeline-with-llm
     ```
 
 2.  **Create `.env` File:**
@@ -100,10 +100,10 @@ API-PIPELINE-WITH-AGENT/
 
     # PostgreSQL Database Credentials
     DB_USER=postgres
-    DB_PASSWORD=your_strong_postgres_password # Use a strong password
+    DB_PASSWORD=your_postgres_password
     DB_NAME=telegram_data
     DB_PORT=5432 # Internal Postgres container port
-    DB_PORT_HOST=5432 # Port exposed on YOUR computer (host) - can be 5433, etc.
+    DB_PORT_HOST=5432
 
     # OpenAI API
     OPENAI_API_KEY=sk-YOUR_OPENAI_API_KEY
@@ -116,14 +116,13 @@ API-PIPELINE-WITH-AGENT/
     # CHAT_IDS="-1001234567890,-1009876543210" # Comma-separated
     ```
 
-3.  **Create Necessary Directories and Files (if not existing):**
-    In the project root, create the directory for Telethon sessions and the initial state file:
+3.  **Create Necessary files:**
+    In the project root, create the file for last processed IDs as state file:
     ```bash
-    mkdir -p telegram_sessions
     touch last_processed_ids.json
     echo "{}" > last_processed_ids.json # Ensures it's a valid, empty JSON
     ```
-    * **Important:** Ensure `SESSION_NAME` in `src/core/config.py` is set to save session files into this directory (e.g., `"telegram_sessions/my_session_name"`). Also, ensure `LAST_IDS_FILE` in `config.py` is `"last_processed_ids.json"`.
+    * **Important:** Ensure `SESSION_NAME` in `src/core/config.py` is set to save session files into project root (e.g., `"telegram_messages_session"`). Also, ensure `LAST_IDS_FILE` in `config.py` is `"last_processed_ids.json"`.
 
 4.  **(Optional) Python Virtual Environment for Local Development:**
     This project uses Poetry for dependency management (primarily for the Docker build). If you wish to develop or run scripts locally outside Docker:
@@ -134,40 +133,38 @@ API-PIPELINE-WITH-AGENT/
 
 ## Running the Application (with Docker Compose)
 
-All `docker-compose` commands should be run from the **project root** (`API-PIPELINE-WITH-AGENT/`).
+All `docker compose` commands should be run from the **project root** (`API-PIPELINE-WITH-AGENT/`).
 
 1.  **Build and Start Docker Services:**
     ```bash
-    docker-compose -f docker/docker-compose.yml --env-file .env up -d --build
+    docker compose -f docker/docker-compose.yml --env-file .env up -d --build
     ```
     * `-f docker/docker-compose.yml`: Specifies the path to your compose file.
     * `--env-file .env`: Loads environment variables from the `.env` file in the project root.
     * `up -d --build`: Starts services in detached mode (`-d`) and rebuilds the application image (`--build`) if the `Dockerfile` or its context has changed.
 
 2.  **Initial Telegram Login (First Time Only, if needed):**
-    If the Telethon session file (e.g., `telegram_sessions/your_session_name.session`) doesn't exist or is invalid, the Python script will require authentication.
-    To provide the login code sent by Telegram:
+    If the Telethon session file (e.g., `telegram_messages_session.session`) doesn't exist or is invalid, the Python script will require authentication.
+    To provide the login code sent by Telegram generate the session file by running `src/main.py`:
     ```bash
-    docker-compose -f docker/docker-compose.yml --env-file .env run --rm app
+    poetry run python src/main.py
     ```
-    This command runs the `app` service interactively. Follow the prompts in your terminal. Once authenticated, the session file will be saved in the `telegram_sessions/` volume on your host. You can then stop this command (`Ctrl+C`) and start services normally with `up -d`.
-
-    Alternatively, generate the session file by running `src/utils/main.py` once on your local machine (ensuring `config.py` points `SESSION_NAME` to the `telegram_sessions/` folder) and then copy the generated `.session` file into the `telegram_sessions/` folder in your project root.
+    This command runs the `application` service interactively. Follow the prompts in your terminal. Once authenticated, the session file will be saved in the `telegram_messages_session.session` volume on your host. You can then stop this command (`Ctrl+C`) and start services normally with `up -d`.
 
 3.  **Checking Logs:**
     To view logs from your Python application (service `app`):
     ```bash
-    docker-compose -f docker/docker-compose.yml --env-file .env logs -f app
+    docker compose -f docker/docker-compose.yml --env-file .env logs -f app
     ```
     To view logs from PostgreSQL (service `postgres_db`):
     ```bash
-    docker-compose -f docker/docker-compose.yml --env-file .env logs -f postgres_db
+    docker compose -f docker/docker-compose.yml --env-file .env logs -f postgres_db
     ```
     You should see logs from `loguru` indicating the scheduler has started and the pipeline task is being executed/scheduled every 12 hours.
 
 ## How it Works (Detailed Flow)
 
-1.  The `src/utils/main.py` script is the main entry point.
+1.  The `src/main.py` script is the main entry point.
 2.  It uses the `schedule` library to schedule the `run_telegram_pipeline` function every 12 hours.
 3.  When `run_telegram_pipeline` executes:
     * It connects to Telegram using credentials from `config.py` (`telegram_handler.py`).
@@ -189,11 +186,3 @@ All `docker-compose` commands should be run from the **project root** (`API-PIPE
 
 * **`docker/telegram_extract.Dockerfile`**: Contains instructions to build the Docker image for your Python application using Poetry for dependency management.
 * **`docker/docker-compose.yml`**: Defines and orchestrates your application service (`app`) and the PostgreSQL database service (`postgres_db`), including networks and volumes.
-
-## Contributing
-
-(Add this section if your project is open to contributions, with guidelines on how to contribute, report bugs, etc.)
-
-## License
-
-(Add this section if you wish to specify a license for your project, e.g., MIT, Apache 2.0)
